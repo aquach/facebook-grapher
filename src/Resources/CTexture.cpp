@@ -2,6 +2,8 @@
 #include "SDL/SDL.h"
 #include "SDL/SDL_image.h"
 #include "Resources/ResourceConstants.h"
+#include <iostream>
+using namespace std;
 
 CTextureTable             CTexture::s_textures;
 
@@ -10,40 +12,39 @@ CTextureTable             CTexture::s_textures;
 #define SET_BLUE(P, C)  (P = (((P) & 0xff00ffff) | ((C) << 16)))
 
 inline void LoadTex (string filename, uint32*& data, uint32* width, uint32* height){
-    
+
     filename = string(c_textureDirectory) + filename;
     SDL_Surface* tex;
     tex = IMG_Load(filename.c_str());
     if (tex == NULL)
         return;
 
-    SDL_PixelFormat newFormat = *tex->format;
-    newFormat.BytesPerPixel = sizeof(uint32);
-    newFormat.BitsPerPixel = 8*sizeof(uint32);
-    
-    SDL_Surface* conv =  SDL_ConvertSurface(tex,&newFormat,SDL_SWSURFACE);
-    SDL_FreeSurface(tex);
+    int w = tex->w;
+    int h = tex->h;
 
-    
-    *width = conv->w;
-    *height= conv->h;
+    *width = w;
+    *height = h;
 
-    data = new uint32[conv->w * conv->h];
-
-
-    for(int r = 0; r < conv->h; r++){
-        for(int c = 0; c < conv->w; c++){
-            int index = (conv->h-1 -r)*conv->w + c;
-            unsigned int pixel = *(((unsigned int*) conv->pixels)+r*conv->w+c);
-            SET_RED( data[index], ((pixel & newFormat.Rmask) >> newFormat.Rshift) <<newFormat.Rloss);
-            SET_GREEN( data[index], ((pixel & newFormat.Gmask) >> newFormat.Gshift) <<newFormat.Gloss);
-            SET_BLUE( data[index], ((pixel & newFormat.Bmask) >> newFormat.Bshift) <<newFormat.Bloss);
-            //Set Alpha bits
-            data[index] = data[index] |  0xff000000; 
-        }
+    SDL_Surface* newSurface;
+    bool hasAlpha = (tex->format->BytesPerPixel == 4);
+    cout << hasAlpha << endl;
+    if (hasAlpha && false) {
+        newSurface = SDL_CreateRGBSurface(0, w, h, 32,
+                                          0x000000ff,
+                                          0x0000ff00,
+                                          0x00ff0000,
+                                          0xff000000);
+        SDL_SetAlpha(tex, 0, 0);
+    } else {
+        newSurface = SDL_CreateRGBSurface(0, w, h, 24,
+                                          0xff000000,
+                                          0x0000ff00,
+                                          0x00ff0000,
+                                          0);
     }
+    SDL_BlitSurface(tex, 0, newSurface, 0);
 
-    SDL_FreeSurface(conv);
+    data = (uint32*)newSurface->pixels;
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -64,14 +65,16 @@ CTexture* CTexture::LoadTexture (const char* name, const char* filename) {
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 
     CTexture* tex = new CTexture;
     tex->m_glTexture = glTexture;
     tex->m_name = name;
     tex->m_width = width;
     tex->m_height = height;
-    
+
+    cout << glGetError() << endl;
+
     delete[] data;
 
     return tex;

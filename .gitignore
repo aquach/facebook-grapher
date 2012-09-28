@@ -6,9 +6,9 @@
 *.dep
 *.idb
 *.obj
-*.txt
 *.log
 *.user
 Thumbs.db
 bin/*
 !bin/*.dll
+Build
